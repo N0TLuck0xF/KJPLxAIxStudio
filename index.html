@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>KJPL Studio</title>
+    <style>
+        body { font-family: monospace; background: #1a1a1a; color: #00ff00; margin: 0; padding: 20px; }
+        #kjpl_studio { display: flex; flex-direction: column; gap: 10px; }
+        #CodeEditor { width: 100%; height: 300px; background: #333; color: #00ff00; border: 1px solid #00ff00; resize: vertical; }
+        #ClaudeChat { border: 1px solid #00ff00; padding: 10px; background: #222; }
+        #ChatInput { width: 80%; background: #333; color: #00ff00; border: 1px solid #00ff00; }
+        #ChatOutput { max-height: 200px; overflow-y: auto; }
+        .toolbar button { background: #333; color: #00ff00; border: 1px solid #00ff00; margin-right: 5px; }
+    </style>
+</head>
+<body>
+    <div id="kjpl_studio">
+        <h1>KJPL Studio</h1>
+        <textarea id="CodeEditor" placeholder="// Write KJPL code here">// Write KJPL code here</textarea>
+        <div id="ClaudeChat">
+            <div id="ChatOutput"></div>
+            <input id="ChatInput" type="text" placeholder="Ask Claude...">
+            <button onclick="sendToClaude()">Send</button>
+        </div>
+        <div class="toolbar">
+            <button onclick="compileWithClaude()">Compile</button>
+            <button onclick="resetEditor()">Reset</button>
+            <button onclick="exportToGitHub()">Export</button>
+        </div>
+    </div>
+    <script>
+        let EDITOR_CONTENT = "// Write KJPL code here";
+        let CLAUDE_RESPONSE = "";
+
+        // Update editor content
+        document.getElementById("CodeEditor").addEventListener("input", (e) => {
+            EDITOR_CONTENT = e.target.value;
+            console.log("Editor updated: " + EDITOR_CONTENT); // Audit log
+        });
+
+        // Security simulation
+        function verifyDualAuth() { return confirm("Dual Authentication Required"); }
+        function verifyAuth() { return confirm("Authenticate Required"); }
+
+        // Claude API call via proxy (replace with your proxy URL)
+        async function callClaudeApi(message) {
+            const proxyUrl = "https://cors-anywhere.herokuapp.com/"; // Temporary proxy (demo only)
+            const apiUrl = "https://api.anthropic.com/v1/messages";
+            const apiKey = "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"; // Store securely elsewhere in production
+            try {
+                const response = await fetch(proxyUrl + apiUrl, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "x-api-key": apiKey,
+                        "anthropic-version": "2023-06-01"
+                    },
+                    body: JSON.stringify({
+                        model: "claude-3-5-sonnet-20241022",
+                        max_tokens: 1000,
+                        system: "You are a KJPL compiler. Translate to JavaScript/HTML/CSS: [KJPL spec here]",
+                        messages: [{ role: "user", content: message }]
+                    })
+                });
+                const data = await response.json();
+                return data.content[0].text;
+            } catch (error) {
+                console.error("Claude API error:", error);
+                return "Error: Failed to compile.";
+            }
+        }
+
+        // Send message to Claude via chat
+        async function sendToClaude() {
+            if (!verifyDualAuth()) return;
+            const input = document.getElementById("ChatInput").value;
+            const outputDiv = document.getElementById("ChatOutput");
+            outputDiv.innerHTML += `<p>You: ${input}</p>`;
+            const response = await callClaudeApi(input);
+            CLAUDE_RESPONSE = response;
+            outputDiv.innerHTML += `<p>Claude: ${response}</p>`;
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+            document.getElementById("ChatInput").value = "";
+            console.log("Claude response: " + response); // Audit log
+        }
+
+        // Compile with Claude
+        async function compileWithClaude() {
+            if (!verifyDualAuth()) return;
+            const code = EDITOR_CONTENT;
+            const compiled = await callClaudeApi("Compile this KJPL to JavaScript/HTML/CSS:\n" + code);
+            CLAUDE_RESPONSE = compiled;
+            document.getElementById("ChatOutput").innerHTML += `<p>Compiled: ${compiled}</p>`;
+            console.log("Compiled: " + compiled); // Audit log
+        }
+
+        // Reset editor
+        function resetEditor() {
+            if (!verifyAuth()) return;
+            EDITOR_CONTENT = "// Write KJPL code here";
+            document.getElementById("CodeEditor").value = EDITOR_CONTENT;
+            console.log("Editor reset"); // Audit log
+        }
+
+        // Export to GitHub (manual step)
+        function exportToGitHub() {
+            const blob = new Blob([CLAUDE_RESPONSE], { type: "text/html" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "compiled_app.html";
+            a.click();
+            URL.revokeObjectURL(url);
+            alert("Download compiled code and manually push to your GitHub repo.");
+            console.log("Exported for GitHub"); // Audit log
+        }
+    </script>
+</body>
+</html>
